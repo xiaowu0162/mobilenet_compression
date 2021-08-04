@@ -1,6 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
+import os
 import torch
 from torch.utils.data import Dataset
 import numpy as np
@@ -41,8 +42,8 @@ class EvalDataset(Dataset):
         return len(self.case_names)
 
     def __getitem__(self, index):
-        instance = np.load(self.case_names[index]).item()
-        return instance['input'], instance['label']
+        instance = np.load(self.case_names[index], allow_pickle=True).item()
+        return instance['input'].transpose(2, 0, 1), instance['label']
 
 
 def count_flops(model):

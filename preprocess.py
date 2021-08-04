@@ -82,11 +82,10 @@ def main(root_dir):
             # Normalize and save the instance
             X = np.array(image)
             X = (X - np.mean(X, axis=(0, 1))) / np.std(X, axis=(0, 1))          # normalize each channel separately
-            y = np.zeros(NUM_CATEGORIES).astype(np.uint8)
-            y[cur_label] = 1
+
             # image.save(root_dir + 'Processed/' + split + '/' + image_name)
             np.save(root_dir + 'Processed/' + split + '/' + cur_file.split('/')[-1].replace('.jpg', '.npy'),
-                    {'input': X, 'label': y})
+                    {'input': X, 'label': cur_label})
 
     # save mapping from label name to index to a dict
     with open(ROOT_DIR + '/category_dict.tsv', 'w') as dict_f:
