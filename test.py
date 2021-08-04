@@ -1,3 +1,6 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT license.
+
 import torch
 import numpy as np
 
@@ -17,7 +20,7 @@ def main(mobilenet_version='v1'):
 
     print(model)
     
-    dummy_input = torch.rand([1, 3, 224, 224])
+    dummy_input = torch.rand([1, 3, 256, 256])
     flops, params, results = count_flops_params(model, dummy_input)
     print(f"FLOPs: {flops}, params: {params}")
 

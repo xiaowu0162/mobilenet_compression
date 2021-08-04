@@ -2,7 +2,7 @@
 
 mkdir -p data/stanford-dogs
 
-# download raw data
+# download raw data (images, annotations, and train-test split)
 cd data/stanford-dogs
 
 if [ ! -d './Images' ] ; then
@@ -19,6 +19,12 @@ if [ ! -d './Annotation' ] ; then
   tar -xvf annotation.tar
 fi
 
+if [ ! -f 'lists.tar' ] ; then
+  wget http://vision.stanford.edu/aditya86/ImageNetDogs/lists.tar
+fi
+tar -xvf lists.tar
+
 cd ../..
 
+# preprocess: splitting and cropping
 python preprocess.py
