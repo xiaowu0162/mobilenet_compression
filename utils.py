@@ -1,3 +1,6 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT license.
+
 import torch
 import numpy as np
 from nni.compression.pytorch.utils.counter import count_flops_params
