@@ -22,7 +22,7 @@ def main(model='mobilenet_v1', checkpoint=None, pretrained=False, n_classes=120,
     loss_func = nn.CrossEntropyLoss()
     acc_list, loss_list = [], []
     with torch.no_grad():
-        for i, (inputs, labels) in enumerate(test_dataloader):
+        for i, (inputs, labels) in tqdm(enumerate(test_dataloader)):
             inputs = inputs.float()
             preds= model(inputs)
             pred_idx = preds.max(1).indices
