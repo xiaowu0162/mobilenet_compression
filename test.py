@@ -7,12 +7,13 @@ import numpy as np
 from utils import *
 
 
-def main(model='mobilenet_v1', checkpoint=None, pretrained=False):
-    model = create_model(model_type=model, checkpoint=checkpoint, pretrained=pretrained)
+def main(model='mobilenet_v1', checkpoint=None, pretrained=False, n_classes=120, input_size=224):
+    model = create_model(model_type=model, pretrained=pretrained, n_classes=n_classes, input_size=input_size,
+                         checkpoint=checkpoint)
     print(model)
     count_flops(model)
 
 
 
 if __name__ == '__main__':
-    main('mobilenet_v2', pretrained=False)
+    main('mobilenet_v2', pretrained=False, n_classes=120, input_size=256)
