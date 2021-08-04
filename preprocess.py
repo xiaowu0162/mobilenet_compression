@@ -69,8 +69,6 @@ def main(root_dir):
             label_name = cur_file.split('/')[0].split('-')[-1].lower()
             if label_name not in label2idx:
                 label2idx[label_name] = cur_label
-            if label_name not in ['chihuahua', 'pekinese']:
-                continue
             image = Image.open(root_dir + '/Images/' + cur_file)
             # cropping and reshape
             annotation_file = root_dir + '/Annotation/' + cur_annotation
