@@ -2,6 +2,7 @@
 # Licensed under the MIT license.
 
 import torch
+from torch.utils.data import Dataset
 import numpy as np
 from nni.compression.pytorch.utils.counter import count_flops_params
 
@@ -25,6 +26,23 @@ def create_model(model_type=None, n_classes=120, input_size=224, checkpoint=None
         raise RuntimeError('Unknown model_type.')
 
     return model
+
+
+class TrainDataset(Dataset):
+    pass
+
+
+class EvalDataset(Dataset):
+    def __init__(self, npy_dir):
+        self.root_dir = npy_dir
+        self.case_names = [self.root_dir + '/' + x for x in os.listdir(self.root_dir)]
+
+    def __len__(self):
+        return len(self.case_names)
+
+    def __getitem__(self, index):
+        instance = np.load(self.case_names[index]).item()
+        return instance['input'], instance['label']
 
 
 def count_flops(model):
