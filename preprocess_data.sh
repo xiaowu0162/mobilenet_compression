@@ -1,0 +1,24 @@
+#!/bin/bash
+
+mkdir -p data/stanford-dogs
+
+# download raw data
+cd data/stanford-dogs
+
+if [ ! -d './Images' ] ; then
+  if [ ! -f 'images.tar' ] ; then
+    wget http://vision.stanford.edu/aditya86/ImageNetDogs/images.tar
+  fi
+  tar -xvf images.tar
+fi
+
+if [ ! -d './Annotation' ] ; then
+  if [ ! -f 'annotation.tar' ] ; then
+    wget http://vision.stanford.edu/aditya86/ImageNetDogs/images.tar
+  fi
+  tar -xvf annotation.tar
+fi
+
+cd ../..
+
+python preprocess.py
