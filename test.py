@@ -16,4 +16,4 @@ def main(model='mobilenet_v1', checkpoint=None, pretrained=False, n_classes=120,
 
 
 if __name__ == '__main__':
-    main('mobilenet_v2', pretrained=False, n_classes=120, input_size=256)
+    main('mobilenet_v2_torchhub', pretrained=True, n_classes=120, input_size=256)

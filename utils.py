@@ -12,7 +12,10 @@ def create_model(model_type=None, n_classes=120, input_size=224, checkpoint=None
     elif model_type == 'mobilenet_v2':
         model = MobileNetV2(n_class=n_classes, input_size=input_size, width_mult=1.)
     elif model_type == 'mobilenet_v2_torchhub':
-        model = torch.hub.load('pytorch/vision:v0.10.0', 'mobilenet_v2', pretrained=pretrained)
+        model = torch.hub.load('pytorch/vision:v0.8.1', 'mobilenet_v2', pretrained=pretrained)
+        feature_size = model.classifier[1].weight.data.size()[1]
+        replace_classifier = torch.nn.Linear(feature_size, n_classes)
+        model.classifier[1] = replace_classifier
     elif model_type is None:
         model = None
     else:
