@@ -30,7 +30,17 @@ def create_model(model_type=None, n_classes=120, input_size=224, checkpoint=None
 
 
 class TrainDataset(Dataset):
-    pass
+    def __init__(self, npy_dir):
+        self.root_dir = npy_dir
+        self.case_names = [self.root_dir + '/' + x for x in os.listdir(self.root_dir)]
+
+    def __len__(self):
+        return len(self.case_names)
+
+    def __getitem__(self, index):
+        # TODO: some simple data augmentation
+        instance = np.load(self.case_names[index], allow_pickle=True).item()
+        return instance['input'].transpose(2, 0, 1), instance['label']
 
 
 class EvalDataset(Dataset):

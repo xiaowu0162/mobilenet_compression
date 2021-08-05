@@ -131,3 +131,4 @@ dmypy.json
 # local folders
 data/
 experiments/
+pretrained_*/
