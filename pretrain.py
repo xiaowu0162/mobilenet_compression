@@ -51,6 +51,8 @@ def run_validation(model, valid_dataloader):
 
 
 def run_pretrain():
+    log = open(experiment_dir + '/pretrain.log', 'w')
+    
     model = create_model(model_type=model_type, pretrained=pretrained, n_classes=n_classes,
                          input_size=input_size, checkpoint=checkpoint)
     model = model.to(device)
@@ -86,12 +88,15 @@ def run_pretrain():
         train_loss = np.array(loss_list).mean()
         print('Epoch {}: train loss {:.4f}, valid loss {:.4f}, valid acc {:.4f}'.format
               (epoch, train_loss, valid_loss, valid_acc))
+        log.write('Epoch {}: train loss {:.4f}, valid loss {:.4f}, valid acc {:.4f}\n'.format
+                  (epoch, train_loss, valid_loss, valid_acc))
         
         # save
         if valid_acc > best_valid_acc:
             best_valid_acc = valid_acc
             torch.save(model.state_dict(), experiment_dir + '/checkpoint_best.pt')
 
+    log.close()
 
 if __name__ == '__main__':
     run_pretrain()
