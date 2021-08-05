@@ -11,12 +11,13 @@ import numpy as np
 from utils import *
 
 
-os.environ["CUDA_VISIBLE_DEVICES"]="3"
+os.environ["CUDA_VISIBLE_DEVICES"]="2"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 model_type = 'mobilenet_v2_torchhub'   # 'mobilenet_v1' 'mobilenet_v2' 'mobilenet_v2_torchhub'
 pretrained = True                      # load imagenet weight (only for 'mobilenet_v2_torchhub')
-checkpoint = None
+checkpoint_dir = 'pretrained_mobilenet_v2_torchhub_202108050227'
+checkpoint = checkpoint_dir + '/checkpoint_best.pt'
 input_size = 224
 n_classes = 120
 batch_size = 8

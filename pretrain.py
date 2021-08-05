@@ -12,11 +12,11 @@ import numpy as np
 from utils import *
 
 
-os.environ["CUDA_VISIBLE_DEVICES"]="0"
+os.environ["CUDA_VISIBLE_DEVICES"]="3"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-model_type = 'mobilenet_v1'   # 'mobilenet_v1' 'mobilenet_v2' 'mobilenet_v2_torchhub'
-pretrained = False                     # load imagenet weight (only for 'mobilenet_v2_torchhub')
+model_type = 'mobilenet_v2_torchhub'   # 'mobilenet_v1' 'mobilenet_v2' 'mobilenet_v2_torchhub'
+pretrained = True                     # load imagenet weight (only for 'mobilenet_v2_torchhub')
 experiment_dir = 'pretrained_{}_{}'.format(model_type, strftime("%Y%m%d%H%M", gmtime()))
 os.mkdir(experiment_dir)
 checkpoint = None
@@ -26,7 +26,7 @@ n_classes = 120
 # optimization parameters
 batch_size = 32
 n_epochs = 20
-learning_rate = 1e-3         # 1e-4 for finetuning, 1e-3 for training from scratch
+learning_rate = 1e-4         # 1e-4 for finetuning, 1e-3 (?) for training from scratch
 
 
 def run_validation(model, valid_dataloader):
@@ -91,6 +91,7 @@ def run_pretrain():
         if valid_acc > best_valid_acc:
             best_valid_acc = valid_acc
             torch.save(model.state_dict(), experiment_dir + '/checkpoint_best.pt')
+
 
 if __name__ == '__main__':
     run_pretrain()

@@ -11,7 +11,7 @@ from scipy import io
 
 ROOT_DIR = './data/stanford-dogs/'
 NUM_CATEGORIES = 120
-OUT_IMAGE_SIZE = (256, 256)
+OUT_IMAGE_SIZE = (224, 224)
 RANDOM_SEED = 42                        # for splitting train and validation
 TRAIN_RATIO = 0.9                       # train / (train + validation)
 
