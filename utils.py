@@ -39,17 +39,17 @@ class TrainDataset(Dataset):
         self.case_names = [self.root_dir + '/' + x for x in os.listdir(self.root_dir)]
         transform_set = [transforms.Lambda(lambda x: x),
                          transforms.RandomRotation(30),
-                         transforms.RandomPerspective(),
+                         # transforms.RandomPerspective(),
                          transforms.ColorJitter(),
                          transforms.RandomHorizontalFlip(p=1)]
         self.transform = transforms.RandomChoice(transform_set)
-
+        
     def __len__(self):
         return len(self.case_names)
 
     def __getitem__(self, index):
         instance = np.load(self.case_names[index], allow_pickle=True).item()
-        x = instance['input'].transpose(2, 0, 1)
+        x = instance['input'].transpose(2, 0, 1)     # (C, H, W)
         x = torch.from_numpy(x)        # convert to Tensor to use torchvision.transforms
         x = self.transform(x)
         return x, instance['label']

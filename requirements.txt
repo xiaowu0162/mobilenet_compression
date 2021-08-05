@@ -1,0 +1,5 @@
+nni==2.3
+sklearn==0.0
+torch==1.7.0
+torchvision==0.8.1
+tqdm==4.49.0
