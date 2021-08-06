@@ -2,6 +2,7 @@
 # Licensed under the MIT license.
 
 import os
+import copy
 from time import gmtime, strftime
 import torch
 import torch.nn as nn
@@ -26,23 +27,24 @@ from nni.algorithms.compression.pytorch.pruning import (
 from utils import *
 
 
-os.environ["CUDA_VISIBLE_DEVICES"]="3"
+os.environ["CUDA_VISIBLE_DEVICES"]="2"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 model_type = 'mobilenet_v2_torchhub'   # 'mobilenet_v1' 'mobilenet_v2' 'mobilenet_v2_torchhub'
 pretrained = False                     # load imagenet weight (only for 'mobilenet_v2_torchhub')
 experiment_dir = './experiments/pretrained_mobilenet_v2_best/'
+log_name_additions = ''
 checkpoint = experiment_dir + '/checkpoint_best.pt'
 input_size = 224
 n_classes = 120
 
 # optimization parameters    (for finetuning)
 batch_size = 32
-n_epochs = 10
+n_epochs = 20
 learning_rate = 1e-4         # 1e-4 for finetuning, 1e-3 (?) for training from scratch
 
 # pruning parameters
-pruner_type = 'l1'
+pruner_type = 'fpgm'
 sparsity = 0.5
 
 
@@ -102,7 +104,7 @@ def run_validation(model, valid_dataloader):
 
 
 def run_finetune(model):
-    log = open(experiment_dir + '/finetune_{}.log'.format(strftime("%Y%m%d%H%M", gmtime())), 'w')
+    log = open(experiment_dir + '/finetune_{}_{}_{}{}.log'.format(pruner_type, sparsity, strftime("%Y%m%d%H%M", gmtime()), log_name_additions), 'w')
     
     train_dataset = TrainDataset('./data/stanford-dogs/Processed/train')
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
@@ -113,6 +115,7 @@ def run_finetune(model):
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     best_valid_acc = 0.0
+    best_model = None
     for epoch in range(n_epochs):
         print('Start training epoch {}'.format(epoch))
         loss_list = []
@@ -136,6 +139,11 @@ def run_finetune(model):
         log.write('Epoch {}: train loss {:.4f}, valid loss {:.4f}, valid acc {:.4f}\n'.format
                   (epoch, train_loss, valid_loss, valid_acc))
 
+        if valid_acc > best_valid_acc:
+            best_valid_acc = valid_acc
+            best_model = copy.deepcopy(model).to(device)
+
+    model = best_model
     log.close()
 
 
