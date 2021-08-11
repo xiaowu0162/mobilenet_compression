@@ -25,7 +25,7 @@ n_classes = 120
 
 # optimization parameters
 batch_size = 32
-n_epochs = 20
+n_epochs = 160
 learning_rate = 1e-4         # 1e-4 for finetuning, 1e-3 (?) for training from scratch
 
 
@@ -65,7 +65,9 @@ def run_pretrain():
     valid_dataloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False)
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    # optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9)
+    # optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, amsgrad=True) 
 
     best_valid_acc = 0.0
     for epoch in range(n_epochs):
@@ -97,6 +99,7 @@ def run_pretrain():
             torch.save(model.state_dict(), experiment_dir + '/checkpoint_best.pt')
 
     log.close()
+
 
 if __name__ == '__main__':
     run_pretrain()
