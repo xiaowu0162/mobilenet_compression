@@ -14,7 +14,7 @@ fi
 
 if [ ! -d './Annotation' ] ; then
   if [ ! -f 'annotation.tar' ] ; then
-    wget http://vision.stanford.edu/aditya86/ImageNetDogs/images.tar
+    wget http://vision.stanford.edu/aditya86/ImageNetDogs/annotation.tar
   fi
   tar -xvf annotation.tar
 fi
