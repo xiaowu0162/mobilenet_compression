@@ -54,7 +54,7 @@ class TrainDataset(Dataset):
     def __getitem__(self, index):
         instance = np.load(self.case_names[index], allow_pickle=True).item()
         x = instance['input'].transpose(2, 0, 1)     # (C, H, W)
-        x = torch.from_numpy(x)#.type(torch.uint8)        # convert to Tensor to use torchvision.transforms
+        x = torch.from_numpy(x).type(torch.float)#.type(torch.uint8)        # convert to Tensor to use torchvision.transforms
         x = self.transform(x)
         return x, instance['label']
 
@@ -70,7 +70,7 @@ class EvalDataset(Dataset):
     def __getitem__(self, index):
         instance = np.load(self.case_names[index], allow_pickle=True).item()
         x = instance['input'].transpose(2, 0, 1)
-        x = torch.from_numpy(x)#.type(torch.uint8)
+        x = torch.from_numpy(x).type(torch.float) #.type(torch.uint8)
         return x, instance['label']
 
 
@@ -80,3 +80,4 @@ def count_flops(model, log=None):
     print(f"FLOPs: {flops}, params: {params}")
     if log is not None:
         log.write(f"FLOPs: {flops}, params: {params}\n")
+    return flops, params

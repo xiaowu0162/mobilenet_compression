@@ -21,7 +21,8 @@ from nni.algorithms.compression.pytorch.pruning import (
     L2FilterPruner,
     AGPPruner,
     ActivationMeanRankFilterPruner,
-    ActivationAPoZRankFilterPruner
+    ActivationAPoZRankFilterPruner,
+    AMCPruner
 )
 
 from utils import *
@@ -34,14 +35,14 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model_type = 'mobilenet_v2_torchhub'   # 'mobilenet_v1' 'mobilenet_v2' 'mobilenet_v2_torchhub'
 pretrained = False                     # load imagenet weight (only for 'mobilenet_v2_torchhub')
 experiment_dir = './experiments/pretrained_mobilenet_v2_best/'
-log_name_additions = '_conv2uniformsparsity'
+log_name_additions = ''
 checkpoint = experiment_dir + '/checkpoint_best.pt'
 input_size = 224
 n_classes = 120
 
 # reduce CPU usage
 train_dataset, train_dataloader = None, None
-train_dataset_for_pruner, train_dataloader_for_pruner = None, None
+# train_dataset_for_pruner, train_dataloader_for_pruner = None, None
 valid_dataset, valid_dataloader = None, None
 test_dataset, test_dataloader = None, None 
 
@@ -49,12 +50,6 @@ test_dataset, test_dataloader = None, None
 batch_size = 32
 n_epochs = 30
 learning_rate = 1e-4         # 1e-4 for finetuning, 1e-3 (?) for training from scratch
-
-# pruning parameters
-pruner_type_list = ['slim']
-# sparsity_list = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
-sparsity_list = [0.8, 0.9]
-
 
 pruner_type_to_class = {'level': LevelPruner,
                         'l1': L1FilterPruner,
@@ -64,7 +59,8 @@ pruner_type_to_class = {'level': LevelPruner,
                         'taylor': TaylorFOWeightFilterPruner,
                         'agp': AGPPruner,
                         'activationmeanrank': ActivationMeanRankFilterPruner,
-                        'apoz': ActivationAPoZRankFilterPruner}
+                        'apoz': ActivationAPoZRankFilterPruner,
+                        'amc': AMCPruner}
 
 
 def run_test(model):
@@ -87,13 +83,13 @@ def run_test(model):
     return final_loss, final_acc
 
 
-def run_validation(model, valid_dataloader):
+def run_validation(model, dataloader):
     model.eval()
     
     loss_func = nn.CrossEntropyLoss()
     acc_list, loss_list = [], []
     with torch.no_grad():
-        for i, (inputs, labels) in enumerate(tqdm(valid_dataloader)):
+        for i, (inputs, labels) in enumerate(tqdm(dataloader)):
             inputs, labels = inputs.float().to(device), labels.to(device)
             preds= model(inputs)
             pred_idx = preds.max(1).indices
@@ -106,6 +102,11 @@ def run_validation(model, valid_dataloader):
     valid_acc = np.array(acc_list).mean()
     
     return valid_loss, valid_acc
+
+
+def validator(dataloader, model):
+    _, acc = run_validation(model, dataloader)
+    return acc
 
 
 def run_finetune(model, log):    
@@ -160,8 +161,8 @@ def trainer_helper(model, criterion, optimizer):
             optimizer.step()
     
 
-def main(sparsity, pruner_type):
-    log = open(experiment_dir + '/prune_{}_{}_{}{}.log'.format(pruner_type, sparsity, strftime("%Y%m%d%H%M", gmtime()), log_name_additions), 'w')
+def main(pruner_type):
+    log = open(experiment_dir + '/prune_{}_{}{}.log'.format(pruner_type, strftime("%Y%m%d%H%M", gmtime()), log_name_additions), 'w')
     
     model = create_model(model_type=model_type, pretrained=pretrained, n_classes=n_classes,
                          input_size=input_size, checkpoint=checkpoint)
@@ -176,41 +177,19 @@ def main(sparsity, pruner_type):
     log.write('Before Pruning:\nLoss: {}\nAccuracy: {}\n'.format(initial_loss, initial_acc))
     
     # pruning
-    if pruner_type == 'slim':
-        config_list = [{
-            # 'op_names': ['features.{}.conv.1.0'.format(x) for x in range(2, 18)],
-            # 'sparsity': sparsity                    
-            # },{
-            'op_types': ['BatchNorm2d'],
-            'op_names': ['features.{}.conv.3'.format(x) for x in range(2, 18)],
-            'sparsity': sparsity                    
-        }]
-    else:
-        config_list = [{
-            # 'op_names': ['features.{}.conv.1.0'.format(x) for x in range(2, 18)],
-            # 'sparsity': sparsity                    
-            # },{
-            'op_names': ['features.{}.conv.2'.format(x) for x in range(2, 18)],
-            'sparsity': sparsity                    
-        }]
-
-    if pruner_type in ['l1', 'l2', 'level', 'fpgm']:
-        kwargs = {}
-        # pruner = pruner_type_to_class[pruner_type](model, config_list)
-    elif pruner_type in ['slim', 'taylor', 'activationmeanrank', 'apoz', 'agp']:
-        def trainer(model, optimizer, criterion, epoch):
-            return trainer_helper(model, criterion, optimizer)
-        kwargs = {
-            'trainer': trainer,
-            'optimizer': torch.optim.Adam(model.parameters()),
-            'criterion': nn.CrossEntropyLoss()
-        }
-        if pruner_type in ['agp']:
-            kwargs['pruning_algorithm'] = 'l1'
-            kwargs['num_iterations'] = int(sparsity/0.1)
-            kwargs['epochs_per_iteration'] = 1
-        if pruner_type == 'slim':
-            kwargs['sparsifying_training_epochs'] = 10
+    config_list = [{
+        'op_types': ['Conv2d'],
+    }]
+    
+    kwargs = {
+        'evaluator': validator,
+        'val_loader': valid_dataloader,
+        'flops_ratio': 0.5,
+        'lbound': 0.3,
+        'rbound': 0.8,
+        'model_type': 'mobilenetv2',
+        'train_episode': 800
+    }
 
     pruner = pruner_type_to_class[pruner_type](model, config_list, **kwargs)
     pruner.compress()
@@ -248,16 +227,13 @@ if __name__ == '__main__':
     # create here and reuse
     train_dataset = TrainDataset('./data/stanford-dogs/Processed/train')
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    train_dataset_for_pruner = EvalDataset('./data/stanford-dogs/Processed/train')
-    train_dataloader_for_pruner = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
+    # train_dataset_for_pruner = EvalDataset('./data/stanford-dogs/Processed/train')
+    # train_dataloader_for_pruner = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
     valid_dataset = EvalDataset('./data/stanford-dogs/Processed/valid')
-    valid_dataloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False)
+    valid_dataloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True, drop_last=True)
     test_dataset = EvalDataset('./data/stanford-dogs/Processed/test')
     test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
     torch.set_num_threads(16)
-    
-    for pruner_type in pruner_type_list:
-        for sparsity in sparsity_list:
-            main(sparsity, pruner_type)
-    
+
+    main('amc')

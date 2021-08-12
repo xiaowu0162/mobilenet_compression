@@ -52,8 +52,8 @@ learning_rate = 1e-4         # 1e-4 for finetuning, 1e-3 (?) for training from s
 
 # pruning parameters
 pruner_type_list = ['slim']
-# sparsity_list = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
-sparsity_list = [0.8, 0.9]
+sparsity_list = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+# sparsity_list = [0.5]
 
 
 pruner_type_to_class = {'level': LevelPruner,
@@ -211,6 +211,7 @@ def main(sparsity, pruner_type):
             kwargs['epochs_per_iteration'] = 1
         if pruner_type == 'slim':
             kwargs['sparsifying_training_epochs'] = 10
+
 
     pruner = pruner_type_to_class[pruner_type](model, config_list, **kwargs)
     pruner.compress()

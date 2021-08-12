@@ -27,14 +27,14 @@ from nni.algorithms.compression.pytorch.pruning import (
 from utils import *
 
 
-os.environ["CUDA_VISIBLE_DEVICES"]="0"
+os.environ["CUDA_VISIBLE_DEVICES"]="1"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 model_type = 'mobilenet_v2_torchhub'   # 'mobilenet_v1' 'mobilenet_v2' 'mobilenet_v2_torchhub'
 pretrained = False                     # load imagenet weight (only for 'mobilenet_v2_torchhub')
 experiment_dir = './experiments/pretrained_mobilenet_v2_best/'
-log_name_additions = '_conv2uniformsparsity'
+log_name_additions = '_conv10uniformsparsity'
 checkpoint = experiment_dir + '/checkpoint_best.pt'
 input_size = 224
 n_classes = 120
@@ -52,8 +52,8 @@ learning_rate = 1e-4         # 1e-4 for finetuning, 1e-3 (?) for training from s
 
 # pruning parameters
 pruner_type_list = ['slim']
-# sparsity_list = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
-sparsity_list = [0.8, 0.9]
+sparsity_list = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+# sparsity_list = [0.5]
 
 
 pruner_type_to_class = {'level': LevelPruner,
@@ -182,7 +182,7 @@ def main(sparsity, pruner_type):
             # 'sparsity': sparsity                    
             # },{
             'op_types': ['BatchNorm2d'],
-            'op_names': ['features.{}.conv.3'.format(x) for x in range(2, 18)],
+            'op_names': ['features.{}.conv.1.1'.format(x) for x in range(2, 18)],
             'sparsity': sparsity                    
         }]
     else:
@@ -190,9 +190,10 @@ def main(sparsity, pruner_type):
             # 'op_names': ['features.{}.conv.1.0'.format(x) for x in range(2, 18)],
             # 'sparsity': sparsity                    
             # },{
-            'op_names': ['features.{}.conv.2'.format(x) for x in range(2, 18)],
+            'op_names': ['features.{}.conv.1.0'.format(x) for x in range(2, 18)],
             'sparsity': sparsity                    
         }]
+    
 
     if pruner_type in ['l1', 'l2', 'level', 'fpgm']:
         kwargs = {}
