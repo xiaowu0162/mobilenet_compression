@@ -12,21 +12,22 @@ import numpy as np
 from utils import *
 
 
-os.environ["CUDA_VISIBLE_DEVICES"]="3"
+os.environ["CUDA_VISIBLE_DEVICES"]="1"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 model_type = 'mobilenet_v2_torchhub'   # 'mobilenet_v1' 'mobilenet_v2' 'mobilenet_v2_torchhub'
 pretrained = True                     # load imagenet weight (only for 'mobilenet_v2_torchhub')
-experiment_dir = 'pretrained_{}_{}'.format(model_type, strftime("%Y%m%d%H%M", gmtime()))
+experiment_dir = 'pretrained_{}_{}_sgdl2reg1e-3'.format(model_type, strftime("%Y%m%d%H%M", gmtime()))
 os.mkdir(experiment_dir)
 checkpoint = None
 input_size = 224
-n_classes = 120
+n_classes = 150
 
 # optimization parameters
 batch_size = 32
 n_epochs = 160
 learning_rate = 1e-4         # 1e-4 for finetuning, 1e-3 (?) for training from scratch
+weight_decay = 0.0   #1e-3          # l2 regularization
 
 
 def run_validation(model, valid_dataloader):
@@ -65,8 +66,8 @@ def run_pretrain():
     valid_dataloader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=False)
 
     criterion = nn.CrossEntropyLoss()
-    # optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-    optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9)
+    # optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+    optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9, weight_decay=weight_decay)
     # optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, amsgrad=True) 
 
     best_valid_acc = 0.0
@@ -102,5 +103,7 @@ def run_pretrain():
 
 
 if __name__ == '__main__':
+    torch.set_num_threads(16)
+    
     run_pretrain()
     

@@ -146,6 +146,7 @@ def run_finetune(model, log):
     log.write("Best validation accuracy: {}".format(best_valid_acc))
 
     model = best_model
+    return model
 
 
 def trainer_helper(model, criterion, optimizer):
@@ -207,7 +208,7 @@ def main(pruner_type):
     log.write('Before Finetuning:\nLoss: {}\nAccuracy: {}\n'.format(intermediate_loss, intermediate_acc))
 
     # finetuning
-    run_finetune(model, log)
+    model = run_finetune(model, log)
     
     # final evaluation
     final_loss, final_acc = run_test(model)

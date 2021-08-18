@@ -27,14 +27,14 @@ from nni.algorithms.compression.pytorch.pruning import (
 from utils import *
 
 
-os.environ["CUDA_VISIBLE_DEVICES"]="1"
+os.environ["CUDA_VISIBLE_DEVICES"]="0"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 model_type = 'mobilenet_v2_torchhub'   # 'mobilenet_v1' 'mobilenet_v2' 'mobilenet_v2_torchhub'
 pretrained = False                     # load imagenet weight (only for 'mobilenet_v2_torchhub')
 experiment_dir = './experiments/pretrained_mobilenet_v2_best/'
-log_name_additions = '_conv10uniformsparsity'
+log_name_additions = ''
 checkpoint = experiment_dir + '/checkpoint_best.pt'
 input_size = 224
 n_classes = 120
@@ -51,8 +51,8 @@ n_epochs = 30
 learning_rate = 1e-4         # 1e-4 for finetuning, 1e-3 (?) for training from scratch
 
 # pruning parameters
-pruner_type_list = ['slim']
-sparsity_list = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+# pruner_type_list = ['slim']
+sparsity_list = [0.4, 0.5, 0.6, 0.7]
 # sparsity_list = [0.5]
 
 
@@ -61,9 +61,8 @@ pruner_type_to_class = {'level': LevelPruner,
                         'l2': L2FilterPruner,
                         'slim': SlimPruner,
                         'fpgm': FPGMPruner,
-                        'taylor': TaylorFOWeightFilterPruner,
-                        'agp': AGPPruner,
-                        'activationmeanrank': ActivationMeanRankFilterPruner,
+                        'taylorfo': TaylorFOWeightFilterPruner,
+                        'mean_activation': ActivationMeanRankFilterPruner,
                         'apoz': ActivationAPoZRankFilterPruner}
 
 
@@ -146,7 +145,7 @@ def run_finetune(model, log):
 
     model = best_model
     return model
-    
+
 
 def trainer_helper(model, criterion, optimizer):
     print("Running trainer in tuner")
@@ -161,8 +160,8 @@ def trainer_helper(model, criterion, optimizer):
             optimizer.step()
     
 
-def main(sparsity, pruner_type):
-    log = open(experiment_dir + '/prune_{}_{}_{}{}.log'.format(pruner_type, sparsity, strftime("%Y%m%d%H%M", gmtime()), log_name_additions), 'w')
+def main(sparsity, pruner_type, num_iterations, epochs_per_iteration):
+    log = open(experiment_dir + '/prune_AGP{}_{}_{}_{}iter_{}epoch{}.log'.format(pruner_type, sparsity, strftime("%Y%m%d%H%M", gmtime()), num_iterations, epochs_per_iteration, log_name_additions), 'w')
     
     model = create_model(model_type=model_type, pretrained=pretrained, n_classes=n_classes,
                          input_size=input_size, checkpoint=checkpoint)
@@ -179,42 +178,39 @@ def main(sparsity, pruner_type):
     # pruning
     if pruner_type == 'slim':
         config_list = [{
-            # 'op_names': ['features.{}.conv.1.0'.format(x) for x in range(2, 18)],
-            # 'sparsity': sparsity                    
-            # },{
-            'op_types': ['BatchNorm2d'],
             'op_names': ['features.{}.conv.1.1'.format(x) for x in range(2, 18)],
+            'sparsity': sparsity                    
+            },{
+            'op_types': ['BatchNorm2d'],
+            'op_names': ['features.{}.conv.3'.format(x) for x in range(2, 18)],
             'sparsity': sparsity                    
         }]
     else:
         config_list = [{
-            # 'op_names': ['features.{}.conv.1.0'.format(x) for x in range(2, 18)],
-            # 'sparsity': sparsity                    
-            # },{
             'op_names': ['features.{}.conv.1.0'.format(x) for x in range(2, 18)],
             'sparsity': sparsity                    
+            },{
+            'op_names': ['features.{}.conv.2'.format(x) for x in range(2, 18)],
+            'sparsity': sparsity                    
         }]
-    
 
-    if pruner_type in ['l1', 'l2', 'level', 'fpgm']:
-        kwargs = {}
-        # pruner = pruner_type_to_class[pruner_type](model, config_list)
-    elif pruner_type in ['slim', 'taylor', 'activationmeanrank', 'apoz', 'agp']:
-        def trainer(model, optimizer, criterion, epoch):
-            return trainer_helper(model, criterion, optimizer)
-        kwargs = {
-            'trainer': trainer,
-            'optimizer': torch.optim.Adam(model.parameters()),
-            'criterion': nn.CrossEntropyLoss()
-        }
-        if pruner_type in ['agp']:
-            kwargs['pruning_algorithm'] = 'l1'
-            kwargs['num_iterations'] = int(sparsity/0.1)
-            kwargs['epochs_per_iteration'] = 1
-        if pruner_type == 'slim':
-            kwargs['sparsifying_training_epochs'] = 10
+    kwargs = {}
+    kwargs['pruning_algorithm'] = pruner_type
+    kwargs['num_iterations'] = num_iterations                # int(sparsity/0.1)
+    kwargs['epochs_per_iteration'] = epochs_per_iteration    # 1
 
-    pruner = pruner_type_to_class[pruner_type](model, config_list, **kwargs)
+    # if pruner_type in ['slim', 'taylor', 'activationmeanrank', 'apoz']:
+    def trainer(model, optimizer, criterion, epoch):
+        return trainer_helper(model, criterion, optimizer)
+    kwargs.update({
+        'trainer': trainer,
+        'optimizer': torch.optim.Adam(model.parameters()),
+        'criterion': nn.CrossEntropyLoss()
+    })
+    if pruner_type == 'slim':
+        kwargs['sparsifying_training_epochs'] = 10
+
+    pruner = AGPPruner(model, config_list, **kwargs)
     pruner.compress()
     pruner.export_model('./model_temp.pth', './mask_temp.pth')
     
@@ -259,7 +255,10 @@ if __name__ == '__main__':
 
     torch.set_num_threads(16)
     
-    for pruner_type in pruner_type_list:
+    for pruner_type in ['l1', 'taylor', 'fpgm']:
         for sparsity in sparsity_list:
-            main(sparsity, pruner_type)
+            # for n_iter, n_epoch in [(int(sparsity/0.1), 1), (int(sparsity/0.1), 2), (int(sparsity/0.1), 3), (int(sparsity/0.1), 4)]:
+            for n_epoch in [1, 3]:
+                for n_iter in [2, 4, 8]:
+                    main(sparsity, pruner_type, n_iter, n_epoch)
     

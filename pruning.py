@@ -6,6 +6,7 @@ import copy
 from time import gmtime, strftime
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import numpy as np
@@ -27,14 +28,14 @@ from nni.algorithms.compression.pytorch.pruning import (
 from utils import *
 
 
-os.environ["CUDA_VISIBLE_DEVICES"]="0"
+os.environ["CUDA_VISIBLE_DEVICES"]="1"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 model_type = 'mobilenet_v2_torchhub'   # 'mobilenet_v1' 'mobilenet_v2' 'mobilenet_v2_torchhub'
 pretrained = False                     # load imagenet weight (only for 'mobilenet_v2_torchhub')
 experiment_dir = './experiments/pretrained_mobilenet_v2_best/'
-log_name_additions = '_conv2uniformsparsity'
+log_name_additions = '_allconv_kd'
 checkpoint = experiment_dir + '/checkpoint_best.pt'
 input_size = 224
 n_classes = 120
@@ -49,11 +50,20 @@ test_dataset, test_dataloader = None, None
 batch_size = 32
 n_epochs = 30
 learning_rate = 1e-4         # 1e-4 for finetuning, 1e-3 (?) for training from scratch
+weight_decay = 0.0   #1e-3
+
+# for distillation
+use_distillation = False
+#alpha = 0.1
+#temperature = 3
+alpha_list = [0.99, 0.95, 0.5, 0.1, 0.05]
+temperature_list = [20., 10., 8., 6., 4.5, 3., 2., 1.5]
+
 
 # pruning parameters
-pruner_type_list = ['slim']
+#pruner_type_list = ['slim']
 # sparsity_list = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
-sparsity_list = [0.8, 0.9]
+#sparsity_list = [0.8, 0.9]
 
 
 pruner_type_to_class = {'level': LevelPruner,
@@ -110,7 +120,7 @@ def run_validation(model, valid_dataloader):
 
 def run_finetune(model, log):    
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     # optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9) 
 
     best_valid_acc = 0.0
@@ -145,6 +155,52 @@ def run_finetune(model, log):
     log.write("Best validation accuracy: {}".format(best_valid_acc))
 
     model = best_model
+    return model
+
+
+def run_finetune_distillation(student_model, teacher_model, alpha, temperature, log):
+    optimizer = torch.optim.Adam(student_model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+    # optimizer = torch.optim.SGD(student_model.parameters(), lr=learning_rate, momentum=0.9)            
+
+    best_valid_acc = 0.0
+    best_model = None
+    for epoch in range(n_epochs):
+        print('Start training epoch {}'.format(epoch))
+        loss_list = []
+
+        # train
+        student_model.train()
+        for i, (inputs, labels) in enumerate(tqdm(train_dataloader)):
+            optimizer.zero_grad()
+            inputs, labels = inputs.float().to(device), labels.to(device)
+            with torch.no_grad():
+                teacher_preds = teacher_model(inputs)
+            
+            preds = student_model(inputs)
+            soft_loss = nn.KLDivLoss()(F.log_softmax(preds/temperature, dim=1),
+                                       F.softmax(teacher_preds/temperature, dim=1))
+            hard_loss = F.cross_entropy(preds, labels)
+            loss = soft_loss * (alpha * temperature * temperature) + hard_loss * (1. - alpha)
+            loss_list.append(loss.item())
+            loss.backward()
+            optimizer.step()
+
+        # validation
+        valid_loss, valid_acc = run_validation(student_model, valid_dataloader)
+        train_loss = np.array(loss_list).mean()
+        print('Epoch {}: train loss {:.4f}, valid loss {:.4f}, valid acc {:.4f}'.format
+              (epoch, train_loss, valid_loss, valid_acc))
+        log.write('Epoch {}: train loss {:.4f}, valid loss {:.4f}, valid acc {:.4f}\n'.format
+                  (epoch, train_loss, valid_loss, valid_acc))
+
+        if valid_acc > best_valid_acc:
+            best_valid_acc = valid_acc
+            best_model = copy.deepcopy(student_model).to(device)
+
+    log.write("Best validation accuracy: {}".format(best_valid_acc))
+
+    student_model = best_model
+    return student_model
 
 
 def trainer_helper(model, criterion, optimizer):
@@ -158,15 +214,38 @@ def trainer_helper(model, criterion, optimizer):
             loss = criterion(preds, labels)
             loss.backward()
             optimizer.step()
-    
 
-def main(sparsity, pruner_type):
-    log = open(experiment_dir + '/prune_{}_{}_{}{}.log'.format(pruner_type, sparsity, strftime("%Y%m%d%H%M", gmtime()), log_name_additions), 'w')
+
+def trainer_helper_with_distillation(model, teacher_model, alpha, temperature, optimizer):
+    print("Running trainer in tuner")
+    for epoch in range(1):
+        model.train()
+        for i, (inputs, labels) in enumerate(tqdm(train_dataloader_for_pruner)):
+            optimizer.zero_grad()
+            inputs, labels = inputs.float().to(device), labels.to(device)
+            
+            with torch.no_grad():
+                teacher_preds = teacher_model(inputs)
+            preds = model(inputs)
+            soft_loss = nn.KLDivLoss()(F.log_softmax(preds/temperature, dim=1),
+                                       F.softmax(teacher_preds/temperature, dim=1))
+            hard_loss = F.cross_entropy(preds, labels)
+            loss = soft_loss * (alpha * temperature * temperature) + hard_loss * (1. - alpha)
+            loss.backward()
+            optimizer.step()
+            
+
+def main(sparsity, pruner_type, alpha=0, temperature=1):
+    log = open(experiment_dir + '/prune_{}_{}_alpha{}_temperature{}_{}{}.log'.format(pruner_type, sparsity, alpha, temperature, strftime("%Y%m%d%H%M", gmtime()), log_name_additions), 'w')
     
     model = create_model(model_type=model_type, pretrained=pretrained, n_classes=n_classes,
                          input_size=input_size, checkpoint=checkpoint)
     model = model.to(device)
     print(model)
+
+    teacher_model = None
+    if use_distillation:
+        teacher_model = copy.deepcopy(model)
 
     # evaluation before pruning 
     count_flops(model, log)
@@ -178,18 +257,18 @@ def main(sparsity, pruner_type):
     # pruning
     if pruner_type == 'slim':
         config_list = [{
-            # 'op_names': ['features.{}.conv.1.0'.format(x) for x in range(2, 18)],
-            # 'sparsity': sparsity                    
-            # },{
+            'op_names': ['features.{}.conv.1.0'.format(x) for x in range(2, 18)],
+            'sparsity': sparsity                    
+        },{
             'op_types': ['BatchNorm2d'],
             'op_names': ['features.{}.conv.3'.format(x) for x in range(2, 18)],
             'sparsity': sparsity                    
         }]
     else:
         config_list = [{
-            # 'op_names': ['features.{}.conv.1.0'.format(x) for x in range(2, 18)],
-            # 'sparsity': sparsity                    
-            # },{
+            'op_names': ['features.{}.conv.1.0'.format(x) for x in range(2, 18)],
+            'sparsity': sparsity                    
+        },{
             'op_names': ['features.{}.conv.2'.format(x) for x in range(2, 18)],
             'sparsity': sparsity                    
         }]
@@ -199,7 +278,10 @@ def main(sparsity, pruner_type):
         # pruner = pruner_type_to_class[pruner_type](model, config_list)
     elif pruner_type in ['slim', 'taylor', 'activationmeanrank', 'apoz', 'agp']:
         def trainer(model, optimizer, criterion, epoch):
-            return trainer_helper(model, criterion, optimizer)
+            if not use_distillation:
+                return trainer_helper(model, criterion, optimizer)
+            else:
+                return trainer_helper_with_distillation(model, teacher_model, alpha, temperature, optimizer)
         kwargs = {
             'trainer': trainer,
             'optimizer': torch.optim.Adam(model.parameters()),
@@ -228,7 +310,10 @@ def main(sparsity, pruner_type):
     log.write('Before Finetuning:\nLoss: {}\nAccuracy: {}\n'.format(intermediate_loss, intermediate_acc))
 
     # finetuning
-    run_finetune(model, log)
+    if use_distillation:
+        model = run_finetune_distillation(model, teacher_model, alpha, temperature, log)
+    else:
+        model = run_finetune(model, log)
     
     # final evaluation
     final_loss, final_acc = run_test(model)
@@ -256,8 +341,16 @@ if __name__ == '__main__':
     test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
     torch.set_num_threads(16)
-    
+
+    '''
     for pruner_type in pruner_type_list:
         for sparsity in sparsity_list:
             main(sparsity, pruner_type)
-    
+    '''
+    '''
+    for alpha in alpha_list:
+        for temperature in temperature_list:
+            main(0.5, 'fpgm', alpha, temperature)
+    '''
+    for pruner_type in ['l1', 'fpgm']:
+        main(0.5, pruner_type, alpha=None, temperature=None)
