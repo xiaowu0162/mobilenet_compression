@@ -56,7 +56,8 @@ weight_decay = 0.0   #1e-3
 use_distillation = False
 #alpha = 0.1
 #temperature = 3
-alpha_list = [0.99, 0.95, 0.5, 0.1, 0.05]
+#alpha_list = [0.99, 0.95, 0.5, 0.1, 0.05]
+alpha_list = [0.5, 0.1, 0.05]
 temperature_list = [20., 10., 8., 6., 4.5, 3., 2., 1.5]
 
 
@@ -235,7 +236,7 @@ def trainer_helper_with_distillation(model, teacher_model, alpha, temperature, o
             optimizer.step()
             
 
-def main(sparsity, pruner_type, alpha=0, temperature=1):
+def main(sparsity, pruner_type, dependency_aware=False, alpha=0, temperature=1):
     log = open(experiment_dir + '/prune_{}_{}_alpha{}_temperature{}_{}{}.log'.format(pruner_type, sparsity, alpha, temperature, strftime("%Y%m%d%H%M", gmtime()), log_name_additions), 'w')
     
     model = create_model(model_type=model_type, pretrained=pretrained, n_classes=n_classes,
@@ -273,6 +274,11 @@ def main(sparsity, pruner_type, alpha=0, temperature=1):
             'sparsity': sparsity                    
         }]
 
+    # config_list = [{
+    #     'op_types': ['Conv2d'],
+    #     'sparsity': sparsity
+    # }]
+    
     if pruner_type in ['l1', 'l2', 'level', 'fpgm']:
         kwargs = {}
         # pruner = pruner_type_to_class[pruner_type](model, config_list)
@@ -294,6 +300,10 @@ def main(sparsity, pruner_type, alpha=0, temperature=1):
         if pruner_type == 'slim':
             kwargs['sparsifying_training_epochs'] = 10
 
+    kwargs['dependency_aware'] = dependency_aware
+    if dependency_aware:
+        kwargs['dummy_input'] = torch.rand(1,3,224,224).cuda()
+            
     pruner = pruner_type_to_class[pruner_type](model, config_list, **kwargs)
     pruner.compress()
     pruner.export_model('./model_temp.pth', './mask_temp.pth')
@@ -347,10 +357,11 @@ if __name__ == '__main__':
         for sparsity in sparsity_list:
             main(sparsity, pruner_type)
     '''
-    '''
-    for alpha in alpha_list:
-        for temperature in temperature_list:
-            main(0.5, 'fpgm', alpha, temperature)
+    
+    #for alpha in alpha_list:
+    #    for temperature in temperature_list:
+    main(0.5, 'l1', dependency_aware=False, alpha=0.99, temperature=8)
     '''
     for pruner_type in ['l1', 'fpgm']:
         main(0.5, pruner_type, alpha=None, temperature=None)
+    '''

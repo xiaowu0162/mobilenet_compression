@@ -12,11 +12,11 @@ from mobilenet import MobileNet
 from mobilenet_v2 import MobileNetV2
 
 
-def create_model(model_type=None, n_classes=120, input_size=224, checkpoint=None, pretrained=False):
+def create_model(model_type=None, n_classes=120, input_size=224, checkpoint=None, pretrained=False, width_mult=1.):
     if model_type == 'mobilenet_v1':
         model = MobileNet(n_class=n_classes, profile='normal')
     elif model_type == 'mobilenet_v2':
-        model = MobileNetV2(n_class=n_classes, input_size=input_size, width_mult=1.)
+        model = MobileNetV2(n_class=n_classes, input_size=input_size, width_mult=width_mult)
     elif model_type == 'mobilenet_v2_torchhub':
         model = torch.hub.load('pytorch/vision:v0.8.1', 'mobilenet_v2', pretrained=pretrained)
         # model = torch.hub.load('pytorch/vision:v0.10.0', 'mobilenet_v2', pretrained=pretrained)

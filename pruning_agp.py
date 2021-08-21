@@ -35,7 +35,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model_type = 'mobilenet_v2_torchhub'   # 'mobilenet_v1' 'mobilenet_v2' 'mobilenet_v2_torchhub'
 pretrained = False                     # load imagenet weight (only for 'mobilenet_v2_torchhub')
 experiment_dir = './experiments/pretrained_mobilenet_v2_best/'
-log_name_additions = '_kd'
+log_name_additions = '_kd_180efinetune'
 checkpoint = experiment_dir + '/checkpoint_best.pt'
 input_size = 224
 n_classes = 120
@@ -48,7 +48,7 @@ test_dataset, test_dataloader = None, None
 
 # optimization parameters    (for finetuning)
 batch_size = 32
-n_epochs = 30
+n_epochs = 180
 learning_rate = 1e-4         # 1e-4 for finetuning, 1e-3 (?) for training from scratch
 
 # for distillation
@@ -60,7 +60,7 @@ use_distillation = True
 # pruning parameters
 # pruner_type_list = ['slim']
 # sparsity_list = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
-sparsity_list = [0.4, 0.5, 0.6, 0.7]
+sparsity_list = [0.5, 0.6, 0.7]
 
 
 pruner_type_to_class = {'level': LevelPruner,
@@ -337,12 +337,15 @@ if __name__ == '__main__':
 
     torch.set_num_threads(16)
     
-    for pruner_type in ['l1', 'taylor', 'fpgm']:
+    # for pruner_type in ['l1', 'taylorfo']:
+    # for pruner_type in ['taylorfo', 'fpgm']:
+
+    for n_iter in [32, 48, 64]:
         for sparsity in sparsity_list:
             # for n_iter, n_epoch in [(int(sparsity/0.1), 1), (int(sparsity/0.1), 2), (int(sparsity/0.1), 3), (int(sparsity/0.1), 4)]:
-            for n_epoch in [1]:
-                for n_iter in [2, 4, 8]:
-                    for alpha in [0.99, 0.95]:
+            for pruner_type in ['l1', 'taylorfo']:
+                for n_epoch in [1]:
+                    for alpha in [0.99]:
                         for temperature in [8]:
                             main(sparsity, pruner_type, n_iter, n_epoch, alpha=alpha, temperature=temperature)
 

@@ -255,7 +255,8 @@ if __name__ == '__main__':
 
     torch.set_num_threads(16)
     
-    for pruner_type in ['l1', 'taylor', 'fpgm']:
+    # for pruner_type in ['l1', 'taylorfo', 'fpgm']:
+    for pruner_type in ['taylorfo', 'fpgm']:
         for sparsity in sparsity_list:
             # for n_iter, n_epoch in [(int(sparsity/0.1), 1), (int(sparsity/0.1), 2), (int(sparsity/0.1), 3), (int(sparsity/0.1), 4)]:
             for n_epoch in [1, 3]:

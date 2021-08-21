@@ -4,7 +4,7 @@
 import os
 import copy
 import time
-from time import gmtime, strftime
+from time import gmtime, strftime, perf_counter
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -54,7 +54,7 @@ def run_test(model):
     loss_func = nn.CrossEntropyLoss()
     acc_list, loss_list = [], []
     with torch.no_grad():
-        start_time_raw = time.perf_counter()
+        start_time_raw = perf_counter()
         for i, (inputs, labels) in enumerate(tqdm(test_dataloader)):
             inputs, labels = inputs.float().to(device), labels.to(device)
             preds = model(inputs)
@@ -63,7 +63,7 @@ def run_test(model):
             acc_list.append(acc)
             loss = loss_func(preds, labels).item()
             loss_list.append(loss)
-        end_time_raw = time.perf_counter()
+        end_time_raw = perf_counter()
 
     print("Inference elapsed raw time: {}s".format(end_time_raw - start_time_raw))
     final_loss = np.array(loss_list).mean()
@@ -77,17 +77,18 @@ def run_test_trt(engine):
     loss_func = nn.CrossEntropyLoss()
     acc_list, loss_list = [], []
     with torch.no_grad():
-        start_time_raw = time.perf_counter()
+        start_time_raw = perf_counter()
         for i, (inputs, labels) in enumerate(tqdm(test_dataloader)):
             inputs, labels = inputs.float().to(device), labels.to(device)
             preds, time = engine.inference(inputs)
+            preds = preds.cuda()
             pred_idx = preds.max(1).indices
             acc = (pred_idx == labels).sum().item() / labels.size(0)
             acc_list.append(acc)
             loss = loss_func(preds, labels).item()
             loss_list.append(loss)
-            time_elasped += time
-        end_time_raw = time.perf_counter()
+            time_elapsed += time
+        end_time_raw = perf_counter()
 
     final_loss = np.array(loss_list).mean()
     final_acc = np.array(acc_list).mean()
@@ -141,6 +142,8 @@ def run_finetune(model, log, optimizer=None, short_term=False):
             loss_list.append(loss.item())
             loss.backward(retain_graph=True)
             optimizer.step()
+            if short_term:
+                break
             
         # validation
         valid_loss, valid_acc = run_validation(model, valid_dataloader)
@@ -202,8 +205,8 @@ def main(quantizer_name=None):
     print('Before Quantization:\nLoss: {}\nAccuracy: {}'.format(initial_loss, initial_acc))
     log.write('Before Quantization:\nLoss: {}\nAccuracy: {}\n'.format(initial_loss, initial_acc))
     '''
-    for name, weight in model.named_parameters():
-        print(name, weight.max().item(), weight.min().item())
+    # for name, weight in model.named_parameters():
+    #     print(name, weight.max().item(), weight.min().item())
         
     # quantization
     config_list = [{
