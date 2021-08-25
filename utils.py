@@ -30,7 +30,7 @@ def create_model(model_type=None, n_classes=120, input_size=224, checkpoint=None
 
     if checkpoint is not None:
         model.load_state_dict(torch.load(checkpoint))
-
+        
     return model
 
 

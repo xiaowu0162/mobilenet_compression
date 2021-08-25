@@ -285,8 +285,8 @@ def main(sparsity, pruner_type, num_iterations, epochs_per_iteration, alpha=0, t
         'optimizer': torch.optim.Adam(model.parameters()),
         'criterion': nn.CrossEntropyLoss()
     })
-    if pruner_type == 'slim':
-        kwargs['sparsifying_training_epochs'] = 10
+    #if pruner_type == 'slim':
+    #    kwargs['sparsifying_training_epochs'] = 10
 
     pruner = AGPPruner(model, config_list, **kwargs)
     pruner.compress()
@@ -343,7 +343,7 @@ if __name__ == '__main__':
     for n_iter in [32, 48, 64]:
         for sparsity in sparsity_list:
             # for n_iter, n_epoch in [(int(sparsity/0.1), 1), (int(sparsity/0.1), 2), (int(sparsity/0.1), 3), (int(sparsity/0.1), 4)]:
-            for pruner_type in ['l1', 'taylorfo']:
+            for pruner_type in ['slim']:
                 for n_epoch in [1]:
                     for alpha in [0.99]:
                         for temperature in [8]:

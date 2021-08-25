@@ -11,16 +11,17 @@ import numpy as np
 from utils import *
 
 
-os.environ["CUDA_VISIBLE_DEVICES"]="0"
+os.environ["CUDA_VISIBLE_DEVICES"]="1"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 model_type = 'mobilenet_v2_torchhub'   # 'mobilenet_v1' 'mobilenet_v2' 'mobilenet_v2_torchhub'
 pretrained = True                      # load imagenet weight (only for 'mobilenet_v2_torchhub')
 checkpoint_dir = './experiments/pretrained_mobilenet_v2_best/'
+# checkpoint_dir = 'pretrained_baseline_mobilenet_v2_torchhub_202108230905_adam_noreg_kd/'
 checkpoint = checkpoint_dir + '/checkpoint_best.pt'
 input_size = 224
 n_classes = 120
-batch_size = 8
+batch_size = 32
 
 def run_test():
     model = create_model(model_type=model_type, pretrained=pretrained, n_classes=n_classes,
@@ -28,7 +29,7 @@ def run_test():
     model = model.to(device)
     print(model)
     # count_flops(model)
-
+    
     test_dataset = EvalDataset('./data/stanford-dogs/Processed/test')
     test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
@@ -51,5 +52,6 @@ def run_test():
 
 
 if __name__ == '__main__':
+    torch.set_num_threads(16)
     run_test()
     
