@@ -1,5 +1,6 @@
-nni==2.3
-sklearn==0.0
-torch==1.7.0
-torchvision==0.8.1
-tqdm==4.49.0
+numpy==1.21.1
+Pillow==8.3.1
+nni=2.4
+torch==1.8.1
+torchvision==0.9.1
+tqdm==4.62.0

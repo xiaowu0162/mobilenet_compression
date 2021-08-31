@@ -3,11 +3,13 @@
 
 import os
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 import torchvision.transforms as transforms
 import numpy as np
 from nni.compression.pytorch.utils.counter import count_flops_params
 
+import sys
+sys.path.append('../../models')
 from mobilenet import MobileNet
 from mobilenet_v2 import MobileNetV2
 
@@ -30,8 +32,17 @@ def create_model(model_type=None, n_classes=120, input_size=224, checkpoint=None
 
     if checkpoint is not None:
         model.load_state_dict(torch.load(checkpoint))
-        
+
     return model
+
+
+def get_dataloader(dataset_type, data_path, batch_size=32, shuffle=True):
+    assert dataset_type in ['train', 'eval']
+    if dataset_type == 'train':
+        ds = TrainDataset(data_path)
+    else:
+        ds = EvalDataset(data_path)
+    return DataLoader(ds, batch_size, shuffle=shuffle)
 
 
 class TrainDataset(Dataset):
@@ -41,12 +52,9 @@ class TrainDataset(Dataset):
         
         transform_set = [transforms.Lambda(lambda x: x),
                          transforms.RandomRotation(30),
-                         # transforms.RandomPerspective(),
                          transforms.ColorJitter(),
                          transforms.RandomHorizontalFlip(p=1)]
         self.transform = transforms.RandomChoice(transform_set)
-        
-        # self.transform = transforms.AutoAugment(transforms.AutoAugmentPolicy.IMAGENET)
         
     def __len__(self):
         return len(self.case_names)
@@ -54,7 +62,7 @@ class TrainDataset(Dataset):
     def __getitem__(self, index):
         instance = np.load(self.case_names[index], allow_pickle=True).item()
         x = instance['input'].transpose(2, 0, 1)     # (C, H, W)
-        x = torch.from_numpy(x).type(torch.float)#.type(torch.uint8)        # convert to Tensor to use torchvision.transforms
+        x = torch.from_numpy(x).type(torch.float)    # convert to Tensor to use torchvision.transforms
         x = self.transform(x)
         return x, instance['label']
 
@@ -70,12 +78,14 @@ class EvalDataset(Dataset):
     def __getitem__(self, index):
         instance = np.load(self.case_names[index], allow_pickle=True).item()
         x = instance['input'].transpose(2, 0, 1)
-        x = torch.from_numpy(x).type(torch.float) #.type(torch.uint8)
+        x = torch.from_numpy(x).type(torch.float)
         return x, instance['label']
 
 
-def count_flops(model, log=None):
+def count_flops(model, log=None, device=None):
     dummy_input = torch.rand([1, 3, 256, 256])
+    if device is not None:
+        dummy_input = dummy_input.to(device)
     flops, params, results = count_flops_params(model, dummy_input)
     print(f"FLOPs: {flops}, params: {params}")
     if log is not None:

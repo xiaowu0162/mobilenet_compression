@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# download and preprocess the Stanford Dogs dataset
+
 mkdir -p data/stanford-dogs
 
 # download raw data (images, annotations, and train-test split)
@@ -26,5 +28,5 @@ tar -xvf lists.tar
 
 cd ../..
 
-# preprocess: splitting and cropping
+# preprocess: train-valid-test splitting and image cropping
 python preprocess.py

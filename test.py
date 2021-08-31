@@ -8,27 +8,26 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 import numpy as np
 
-from utils import *
+from utils import create_model, EvalDataset, count_flops
 
 
-os.environ["CUDA_VISIBLE_DEVICES"]="1"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-model_type = 'mobilenet_v2_torchhub'   # 'mobilenet_v1' 'mobilenet_v2' 'mobilenet_v2_torchhub'
-pretrained = True                      # load imagenet weight (only for 'mobilenet_v2_torchhub')
-checkpoint_dir = './experiments/pretrained_mobilenet_v2_best/'
-# checkpoint_dir = 'pretrained_baseline_mobilenet_v2_torchhub_202108230905_adam_noreg_kd/'
-checkpoint = checkpoint_dir + '/checkpoint_best.pt'
+model_type = 'mobilenet_v2_torchhub'    # 'mobilenet_v1' 'mobilenet_v2' 'mobilenet_v2_torchhub'
+pretrained = False                      # load imagenet weight (only for 'mobilenet_v2_torchhub')
+checkpoint_dir = './pretrained_{}/'.format(model_type)
+checkpoint = checkpoint_dir + '/checkpoint_best.pt'    # model checkpoint produced by pretrain.py
 input_size = 224
 n_classes = 120
 batch_size = 32
+
 
 def run_test():
     model = create_model(model_type=model_type, pretrained=pretrained, n_classes=n_classes,
                          input_size=input_size, checkpoint=checkpoint)
     model = model.to(device)
     print(model)
-    # count_flops(model)
+    # count_flops(model, device=device)
     
     test_dataset = EvalDataset('./data/stanford-dogs/Processed/test')
     test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
@@ -48,10 +47,9 @@ def run_test():
 
     final_loss = np.array(loss_list).mean()
     final_acc = np.array(acc_list).mean()
-    print('Final loss: {}\nFinal accuracy: {}'.format(final_loss, final_acc))
+    print('Test loss: {}\nTest accuracy: {}'.format(final_loss, final_acc))
 
 
 if __name__ == '__main__':
-    torch.set_num_threads(16)
     run_test()
     

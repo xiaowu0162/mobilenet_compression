@@ -39,11 +39,15 @@ def get_bounding_box(annotation_file):
 
 
 def main(root_dir):
-    os.mkdir(root_dir + 'Processed')
-    os.mkdir(root_dir + 'Processed/train')
-    os.mkdir(root_dir + 'Processed/valid')
-    os.mkdir(root_dir + 'Processed/test')
-
+    try:
+        os.mkdir(root_dir + 'Processed')
+        os.mkdir(root_dir + 'Processed/train')
+        os.mkdir(root_dir + 'Processed/valid')
+        os.mkdir(root_dir + 'Processed/test')
+    except:
+        print('Directory already exists. Nothing done.')
+        exit()
+        
     # load train test splits
     train_metadata = io.loadmat(root_dir + 'train_list.mat')
     train_valid_file_list = [x[0][0] for x in train_metadata['file_list']]
@@ -64,16 +68,16 @@ def main(root_dir):
                                                          [train_file_list, valid_file_list, test_file_list],
                                                          [train_annotation_list, valid_annotation_list, test_annotation_list],
                                                          [train_labels, valid_labels, test_labels]):
-        print('{}: {} cases'.format(split, len(file_list)))
+        print('Preprocessing {} set: {} cases'.format(split, len(file_list)))
         for cur_file, cur_annotation, cur_label in zip(file_list, annotation_list, labels):
             label_name = cur_file.split('/')[0].split('-')[-1].lower()
             if label_name not in label2idx:
                 label2idx[label_name] = cur_label
             image = Image.open(root_dir + '/Images/' + cur_file)
+
             # cropping and reshape
             annotation_file = root_dir + '/Annotation/' + cur_annotation
             bounding_box = get_bounding_box(annotation_file)
-            # TODO: consider expanding along one direction before resizing
             image = image.crop([bounding_box['X_min'], bounding_box['Y_min'],
                                 bounding_box['X_max'], bounding_box['Y_max']])
             image = image.convert('RGB')
