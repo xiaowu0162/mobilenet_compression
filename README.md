@@ -17,5 +17,5 @@ python pretrain.py
 
 ### Experiment with pruning
 ```
-python pruning_experiments.py [arguments]
+python pruning_experiments.py --experiment_dir pretrained_mobilenet_v2_torchhub/ --checkpoint_name 'checkpoint_best.pt' [arguments]
 ```
