@@ -12,10 +12,10 @@ chmod u+x prepare_data.sh
 
 ### Pretraining
 ```
-python pretrain.py
+python3 pretrain.py
 ```
 
 ### Experiment with pruning
 ```
-python pruning_experiments.py [arguments]
+python3 pruning_experiments.py [arguments]
 ```
